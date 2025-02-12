@@ -71,7 +71,7 @@ jobs:
         username: ${{secrets.SSH_USERNAME}}
         key: ${{secrets.SSH_PRIVATE_KEY}}
         script_stop: true #배포 중 오류가 나면 즉시 중지
-        script :
+        script : |
           sudo fuser -k -n tcp 8080 || true #8080 포트 사용 중지
           sudo nohup java -jar cicdtest.jar > ./output.log 2>&1 &
 
