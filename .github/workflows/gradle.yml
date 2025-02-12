@@ -81,7 +81,6 @@ jobs:
           script_stop: true #배포 중 오류가 나면 즉시 중지
           script : |
             docker load < /home/ubuntu/spring-boot-app.tar
-#             기존 컨테이너 중지, 삭제
             docker stop spring-boot-app || true
             docker rm spring-boot-app || true
             docker run -d --name spring-boot-app -p 8080:8080 spring-boot-app
