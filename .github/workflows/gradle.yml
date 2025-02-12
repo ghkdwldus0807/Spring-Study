@@ -36,27 +36,35 @@ jobs:
     - name: Setup Gradle
       uses: gradle/actions/setup-gradle@af1da67850ed9a4cedd57bfd976089dd991e2582 # v4.0.0
 
-    #4. 빌드
+    #4. gradle 빌드
     - name: Build with Gradle Wrapper
       run: ./gradlew clean build
 
-    #5. 빌드된 파일 이름 변경
-    - name : change JAR Name
-      run : mv ./build/libs/*SNAPSHOT.jar ./cicdtest.jar
+    #5. Docker 이미지 빌드
+    - name : Build Docker Image
+      run: docker build -t spring-boot-app .
 
-    # 6. 빌드 및 이름 변경된 cicdtest.jar 파일 EC2 전송
-    - name: SCP로 EC2에 빌드된 파일 전송하기
+    #6. Docker 이미지 파일로 저장
+    - name : Save Docker Image
+      run : docker save spring-boot-app > spring-boot-app.tar
+
+    #5. 빌드된 파일 이름 변경
+#    - name : change JAR Name
+#      run : mv ./build/libs/*SNAPSHOT.jar ./cicdtest.jar
+
+    # 7. 도커 이미지 EC2로 전송
+    - name: 도커 이미지 EC2로 전송 (SCP 이용)
       uses: appleboy/scp-action@master
       with:
         host: ${{ secrets.SERVER_IP }}
         username: ${{ secrets.SSH_USERNAME }}
         key: ${{ secrets.SSH_PRIVATE_KEY }}
-        source: cicdtest.jar
+        source: spring-boot-app.tar
         target: /home/ubuntu
 
-    #7. 테스트
-    - name : Gradle Test
-      run : ./gradlew clean test
+    #0. 테스트
+#    - name : Gradle Test
+#      run : ./gradlew clean test
 
   #배포
   deploy:
@@ -64,7 +72,7 @@ jobs:
     runs-on : ubuntu-latest
 
     steps:
-      - name : EC2 Connect
+      - name : EC2 Connect & 도커 컨테이너 배포
         uses: appleboy/ssh-action@master
         with:
           host: ${{ secrets.SERVER_IP}}
@@ -72,8 +80,15 @@ jobs:
           key: ${{secrets.SSH_PRIVATE_KEY}}
           script_stop: true #배포 중 오류가 나면 즉시 중지
           script : |
-            sudo fuser -k -n tcp 8080 || true #8080 포트 사용 중지
-            sudo nohup java -jar cicdtest.jar > ./output.log 2>&1 &
+            docker load < /home/ubuntu/spring-boot-app.tar
+#             기존 컨테이너 중지, 삭제
+            docker stop spring-boot-app || true
+            docker rm spring-boot-app || true
+            docker run -d --name spring-boot-app -p 8080:8080 spring-boot-app
+
+
+  #            sudo fuser -k -n tcp 8080 || true #8080 포트 사용 중지
+#            sudo nohup java -jar cicdtest.jar > ./output.log 2>&1 &
 
   dependency-submission:
 
